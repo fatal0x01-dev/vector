@@ -1,0 +1,16 @@
+module: http
+triggers:
+  service:
+    - http
+    - https
+    - http-alt
+    - https-alt
+tools:
+  - whatweb
+  - nuclei
+  - feroxbuster
+produces:
+  - webserver
+  - technology
+  - directory
+  - finding

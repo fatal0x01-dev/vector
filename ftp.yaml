@@ -1,0 +1,9 @@
+module: ftp
+triggers:
+  service:
+    - ftp
+tools:
+  - ftp-anon-check
+produces:
+  - finding
+  - credential

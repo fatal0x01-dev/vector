@@ -1,0 +1,13 @@
+module: smb
+triggers:
+  service:
+    - smb
+    - microsoft-ds
+    - netbios-ssn
+tools:
+  - enum4linux-ng
+  - smbclient
+produces:
+  - share
+  - finding
+  - credential

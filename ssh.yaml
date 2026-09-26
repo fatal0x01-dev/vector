@@ -1,0 +1,8 @@
+module: ssh
+triggers:
+  service:
+    - ssh
+tools:
+  - ssh-banner
+produces:
+  - finding
