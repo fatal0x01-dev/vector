@@ -1,0 +1,15 @@
+# nmap -sV typically reports MS-SQL as "ms-sql-s". ms-sql-empty-password
+# checks the 'sa' account (and any other accounts the info script
+# turns up) for a blank password -- a long-running, still-common
+# misconfiguration on dev/legacy instances.
+module: mssql
+triggers:
+  service:
+    - ms-sql-s
+tools:
+  - nse-probe
+nse_scripts:
+  - ms-sql-info
+  - ms-sql-empty-password
+produces:
+  - finding

@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from core.knowledge_base import KnowledgeBase
+from core.scorer import score_host
 
 
 class ReportGenerator:
@@ -46,6 +47,7 @@ class ReportGenerator:
 
         payload = {
             "host": self.host,
+            "entry_point_assessment": score_host(facts),
             "facts": facts,
             "modules_run": module_status,
         }
@@ -90,17 +92,50 @@ class ReportGenerator:
         lines.append(f"**Findings:** {len(findings)}  |  **Credentials:** {len(credentials)}")
         lines.append("")
 
+        # --- Entry-point assessment (lead section -- see core/scorer.py) ---
+        assessment = score_host(facts)
+        lines.append("## Entry-Point Assessment")
+        lines.append("")
+        lines.append(f"**Score:** {assessment['score']}  |  **Tier:** `{assessment['tier']}`")
+        lines.append("")
+        bd = assessment["breakdown"]
+        lines.append(
+            f"Breakdown — credentials: {bd['credentials']}, critical: {bd['critical']}, "
+            f"high: {bd['high']}, medium: {bd['medium']}, low: {bd['low']}"
+        )
+        lines.append("")
+        if assessment["entry_points"]:
+            lines.append("Ranked by contribution to the score (highest first):")
+            lines.append("")
+            lines.append("| Points | Severity | Port | Entry point | Source |")
+            lines.append("|--------|----------|------|--------------|--------|")
+            for ep in assessment["entry_points"]:
+                lines.append(
+                    f"| {ep['points']} | {ep['severity']} | {ep['port'] if ep['port'] is not None else ''} "
+                    f"| {ep['label']} | {ep['source_tool']} |"
+                )
+        else:
+            lines.append(
+                "_No scored entry points. This means nothing this pipeline's modules flagged -- "
+                "not that the host has no weaknesses; see core/scorer.py for what is and isn't counted._"
+            )
+        lines.append("")
+
         # --- Ports / services table ---
         lines.append("## Open Ports")
         lines.append("")
         if ports:
-            lines.append("| Port | Protocol | Service | Product | Version |")
-            lines.append("|------|----------|---------|---------|---------|")
+            lines.append("| Port | Protocol | Service | Product | Version | State |")
+            lines.append("|------|----------|---------|---------|---------|-------|")
             for f in sorted(ports, key=lambda x: x["data"].get("port", 0)):
                 d = f["data"]
+                # "open|filtered" (UDP ports that didn't respond to the
+                # probe) is lower-confidence than a confirmed "open" TCP
+                # port -- surfaced here rather than silently treated the
+                # same way. See nmap_module.py docstring.
                 lines.append(
                     f"| {d.get('port')} | {d.get('protocol', '')} | {d.get('service', '')} "
-                    f"| {d.get('product') or ''} | {d.get('version') or ''} |"
+                    f"| {d.get('product') or ''} | {d.get('version') or ''} | {d.get('state') or ''} |"
                 )
         else:
             lines.append("_No open ports recorded._")
@@ -134,10 +169,15 @@ class ReportGenerator:
                     d = f["data"]
                     if "cve" in d or "finding" in d:
                         label = d.get("finding") or d.get("cve")
+                        cve = d.get("cve")
+                        # exploitdb/NVD facts set both "finding" (a generic
+                        # label like "exploitdb_match") and "cve" -- show the
+                        # actual CVE id too rather than just the generic label.
+                        cve_txt = f" [{cve}]" if cve and cve != label else ""
                         sev = d.get("severity", "")
                         verified = d.get("verified")
                         vtxt = " (verified)" if verified else ""
-                        lines.append(f"  - `{label}` severity={sev}{vtxt} — source: {f['source_tool']}")
+                        lines.append(f"  - `{label}`{cve_txt} severity={sev}{vtxt} — source: {f['source_tool']}")
                     elif "banner" in d:
                         lines.append(f"  - banner: `{d['banner']}` — source: {f['source_tool']}")
                     else:

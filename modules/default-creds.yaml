@@ -1,0 +1,20 @@
+# See modules_impl/default_creds_module.py for the full scope note --
+# this runs a SHORT, built-in default-credential list (not a wordlist)
+# against each of these protocols, stopping on first hit per service.
+# Only run against hosts you are authorized to test: repeated auth
+# attempts are a real operational side effect (lockouts, alerts), not
+# a theoretical one.
+module: default-creds
+triggers:
+  service:
+    - ssh
+    - ftp
+    - mysql
+    - telnet
+    - vnc
+    - redis
+tools:
+  - hydra-default-creds
+produces:
+  - credential
+  - finding

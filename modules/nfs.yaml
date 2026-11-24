@@ -1,0 +1,17 @@
+# Triggers on both the portmapper (111/rpcbind) and the NFS service
+# itself (2049/nfs) -- nmap -sV reports either depending on which port
+# got fingerprinted. An exported share with no client restriction
+# (no_root_squash, or just a world-mountable export) is a classic
+# "quietly mount the whole filesystem" entry point.
+module: nfs
+triggers:
+  service:
+    - nfs
+    - rpcbind
+tools:
+  - nse-probe
+nse_scripts:
+  - nfs-showmount
+  - nfs-ls
+produces:
+  - finding

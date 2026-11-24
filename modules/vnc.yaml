@@ -1,0 +1,14 @@
+# VNC entry points worth flagging early: no auth at all, or a server
+# vulnerable to the RealVNC 4.1.0-4.1.1 auth-bypass (CVE-2006-2369 --
+# yes, ancient, but still turns up on forgotten appliances/lab boxes).
+module: vnc
+triggers:
+  service:
+    - vnc
+tools:
+  - nse-probe
+nse_scripts:
+  - vnc-info
+  - realvnc-auth-bypass
+produces:
+  - finding

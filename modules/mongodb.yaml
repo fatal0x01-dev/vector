@@ -1,0 +1,15 @@
+# MongoDB pre-2.6 defaults (and plenty of still-misconfigured later
+# versions) bind without authentication. mongodb-databases succeeding
+# at all against an unauthenticated server is the finding; it also
+# hands back database names, a direct map of what's exposed.
+module: mongodb
+triggers:
+  service:
+    - mongodb
+tools:
+  - nse-probe
+nse_scripts:
+  - mongodb-info
+  - mongodb-databases
+produces:
+  - finding

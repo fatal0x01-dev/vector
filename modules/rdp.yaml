@@ -1,0 +1,14 @@
+# nmap -sV reports RDP as "ms-wbt-server". rdp-enum-encryption reports
+# which security layers/encryption levels the server accepts --
+# RDP Security Layer (no NLA) is a relevant pre-auth entry point/attack
+# surface flag, not just an info dump.
+module: rdp
+triggers:
+  service:
+    - ms-wbt-server
+tools:
+  - nse-probe
+nse_scripts:
+  - rdp-enum-encryption
+produces:
+  - finding

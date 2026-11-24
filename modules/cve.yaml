@@ -1,0 +1,12 @@
+module: cve
+triggers:
+  # has_version (not "service"): this runs against ANY port where nmap -sV
+  # fingerprinted both a product and a version string, regardless of which
+  # service it is -- http, ssh, ftp, smb, mysql, whatever. See
+  # core/registry.py ModuleDefinition.matches() for how this trigger kind
+  # is evaluated.
+  has_version: true
+tools:
+  - searchsploit
+produces:
+  - finding

@@ -42,14 +42,21 @@ class Module(ABC):
     """
     Abstract base for a tool wrapper.
 
-    Class-level attributes `name`, `triggers`, `produces` are normally
-    populated from the module's YAML definition by the registry, but can
-    also be set directly by subclasses for standalone use/testing.
+    Class-level attributes `name`, `triggers`, `produces`, `config` are
+    normally populated from the module's YAML definition by the registry,
+    but can also be set directly by subclasses for standalone use/testing.
+
+    `config` carries the module's *entire* parsed YAML dict (not just
+    triggers/tools/produces), so a module can read arbitrary custom keys
+    its YAML def adds -- e.g. `nse_scripts: [...]` for the generic
+    nse-probe module (modules_impl/nse_probe_module.py). Modules that
+    don't need custom keys can ignore it entirely.
     """
 
     name: str = "unnamed_module"
     triggers: dict[str, Any] = {}
     produces: list[str] = []
+    config: dict[str, Any] = {}
     default_fact_type: str = "finding"
     timeout_seconds: int = 300
 

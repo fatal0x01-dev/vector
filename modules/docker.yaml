@@ -1,0 +1,18 @@
+# Port-based, not service-based: nmap -sV frequently just reports
+# "http" (or nothing useful) on 2375/2376 rather than identifying the
+# Docker Engine API, so a service-name trigger would miss it. The
+# unauthenticated Docker API on 2375 (no TLS) is a well-known
+# straight-to-root entry point -- full container/image control, and a
+# container can be started with a host bind-mount to escape to the
+# host filesystem.
+module: docker
+triggers:
+  port:
+    - 2375
+    - 2376
+tools:
+  - nse-probe
+nse_scripts:
+  - docker-version
+produces:
+  - finding

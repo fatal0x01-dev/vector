@@ -1,0 +1,14 @@
+# Redis is a classic "no auth by default" entry point -- a huge share
+# of internet-facing Redis instances have never had `requirepass` set.
+# redis-info reports version/mode/role and, for an unauthenticated
+# instance, succeeds outright -- which is itself the finding.
+module: redis
+triggers:
+  service:
+    - redis
+tools:
+  - nse-probe
+nse_scripts:
+  - redis-info
+produces:
+  - finding

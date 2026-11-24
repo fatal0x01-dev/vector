@@ -1,0 +1,23 @@
+# SMTP/POP3/IMAP in one module: smtp-open-relay is the headline check
+# (a relay that will forward mail for anyone is both an entry point and
+# an abuse vector in its own right); smtp-commands/pop3-capabilities/
+# imap-capabilities surface banners and supported extensions, which
+# commonly leak exact server version/build for the CVE module to chew on.
+module: mail
+triggers:
+  service:
+    - smtp
+    - pop3
+    - imap
+    - pop3s
+    - imaps
+    - submission
+tools:
+  - nse-probe
+nse_scripts:
+  - smtp-commands
+  - smtp-open-relay
+  - pop3-capabilities
+  - imap-capabilities
+produces:
+  - finding

@@ -1,0 +1,12 @@
+# tunnel trigger (not service): fires on ANY port nmap -sV flagged as
+# SSL-wrapped, regardless of what's running inside the TLS layer --
+# ssl/http, ssl/smtp, ssl/imap, a TLS-wrapped custom port. See
+# core/registry.py ModuleDefinition.matches() and
+# modules_impl/nmap_module.py for where `tunnel` is set.
+module: tls
+triggers:
+  tunnel: ssl
+tools:
+  - tls-audit
+produces:
+  - finding

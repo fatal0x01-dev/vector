@@ -1,0 +1,17 @@
+# SNMP lives on UDP -- this module only gets a chance to fire because
+# of the UDP top-ports sweep added to modules_impl/nmap_module.py.
+# A "public" (or any guessable) read community string hands back
+# system info, routing tables, running processes, interface lists --
+# often enough to map the whole network from one SNMP hit.
+module: snmp
+triggers:
+  service:
+    - snmp
+tools:
+  - nse-probe
+nse_scripts:
+  - snmp-sysdescr
+  - snmp-info
+  - snmp-netstat
+produces:
+  - finding

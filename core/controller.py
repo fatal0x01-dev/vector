@@ -8,7 +8,8 @@ Orchestrates the sequential recon pipeline per target:
     3. For each discovered service, ask the registry which modules
        are applicable and run them one at a time.
     4. Store every fact each module produces.
-    5. Track module success/failure per host for resumability.
+    5. Track module success/failure per host (and per port, see below)
+       for resumability.
 
 One Controller instance handles a target list; each target gets its
 own knowledge base file and log directory under output/<host>/.
@@ -86,7 +87,7 @@ class Controller:
         port_facts = kb.get_facts(host=host, fact_type="port")
 
         for fact in port_facts:
-            service_fact = fact["data"]  # {"port": 80, "service": "http", ...}
+            service_fact = fact["data"]  # {"port": 80, "service": "http", "product": ..., "version": ...}
             applicable = self.registry.applicable_modules(service_fact)
 
             missing = self.registry.unimplemented_tools(service_fact)
@@ -97,25 +98,40 @@ class Controller:
                 )
 
             for module in applicable:
+                port = service_fact.get("port")
                 target_ctx = {
                     "host": host,
-                    "port": service_fact.get("port"),
+                    "port": port,
                     "service": service_fact.get("service"),
+                    "product": service_fact.get("product"),
+                    "version": service_fact.get("version"),
                 }
 
-                if kb.has_run(host, module.name) and not self.force:
-                    logger.info("[%s] %s already run -- skipping", host, module.name)
+                # Resumability key is (module tool name, port) rather than
+                # just the tool name. Without the port, a tool that legally
+                # matches more than one port on the same host -- whatweb on
+                # :80 and :8080, or searchsploit against both an SMB and an
+                # HTTP fingerprint -- would run once for the first matching
+                # port and then silently skip every later one, because
+                # has_run()/mark_finished() only ever saw one (host, module)
+                # pair. Keying on the port fixes that without touching the
+                # KnowledgeBase schema; result.module_name (used for fact
+                # source_tool and log file names) is untouched.
+                run_key = f"{module.name}@{port}" if port is not None else module.name
+
+                if kb.has_run(host, run_key) and not self.force:
+                    logger.info("[%s] %s already run -- skipping", host, run_key)
                     continue
 
                 logger.info(
                     "[%s] running %s (service=%s, port=%s)",
-                    host, module.name, target_ctx["service"], target_ctx["port"],
+                    host, module.name, target_ctx["service"], port,
                 )
 
-                kb.mark_running(host, module.name)
+                kb.mark_running(host, run_key)
                 result = module.run(target_ctx)
                 self._store_result(kb, result)
-                kb.mark_finished(host, module.name, result.success)
+                kb.mark_finished(host, run_key, result.success)
 
     @staticmethod
     def _store_result(kb: KnowledgeBase, result: ModuleResult) -> None:
