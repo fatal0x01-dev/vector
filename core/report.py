@@ -67,6 +67,7 @@ class ReportGenerator:
 
         ports = [f for f in facts if f["type"] == "port"]
         technologies = [f for f in facts if f["type"] == "technology"]
+        webservers = [f for f in facts if f["type"] == "webserver"]
         findings = [f for f in facts if f["type"] == "finding"]
         credentials = [f for f in facts if f["type"] == "credential"]
         directories = [f for f in facts if f["type"] == "directory"]
@@ -74,10 +75,12 @@ class ReportGenerator:
 
         # Index everything by port so we can render a "per-service" section
         by_port: dict[Any, dict[str, list]] = defaultdict(
-            lambda: {"technology": [], "finding": [], "directory": [], "share": []}
+            lambda: {"technology": [], "webserver": [], "finding": [], "directory": [], "share": []}
         )
         for f in technologies:
             by_port[f["data"].get("port")]["technology"].append(f)
+        for f in webservers:
+            by_port[f["data"].get("port")]["webserver"].append(f)
         for f in findings:
             by_port[f["data"].get("port")]["finding"].append(f)
         for f in directories:
@@ -151,6 +154,13 @@ class ReportGenerator:
 
             detail = by_port.get(port, {})
 
+            if detail.get("webserver"):
+                for f in detail["webserver"]:
+                    d = f["data"]
+                    parts = [p for p in (d.get("server"), d.get("x_powered_by")) if p]
+                    if parts:
+                        lines.append(f"- **Web server:** {' / '.join(parts)}")
+
             if detail.get("technology"):
                 techs = sorted({t for f in detail["technology"] for t in f["data"].get("technology", [])})
                 lines.append(f"- **Technologies:** {', '.join(techs)}")
@@ -177,7 +187,21 @@ class ReportGenerator:
                         sev = d.get("severity", "")
                         verified = d.get("verified")
                         vtxt = " (verified)" if verified else ""
-                        lines.append(f"  - `{label}`{cve_txt} severity={sev}{vtxt} — source: {f['source_tool']}")
+                        # A few finding types carry extra structured fields
+                        # (modules_impl/cms_fingerprint_module.py) that the
+                        # generic label/cve/severity line above doesn't
+                        # surface on its own -- fill those in inline rather
+                        # than falling through to the raw-json branch below.
+                        extra = ""
+                        if label == "cms_detected":
+                            cms, ver = d.get("cms"), d.get("version")
+                            extra = f" — {cms}{f' {ver}' if ver else ' (version not determined)'}"
+                        elif label == "cms_admin_panel_found":
+                            path = d.get("login_path") or d.get("admin_path")
+                            extra = f" — {path} (status {d.get('login_status') or d.get('admin_status')})"
+                        elif label == "wordpress_user_enumeration":
+                            extra = f" — usernames: {', '.join(d.get('usernames', []))}"
+                        lines.append(f"  - `{label}`{cve_txt}{extra} severity={sev}{vtxt} — source: {f['source_tool']}")
                     elif "banner" in d:
                         lines.append(f"  - banner: `{d['banner']}` — source: {f['source_tool']}")
                     else:

@@ -7,6 +7,7 @@ must import modules_impl before running the Controller.
 
 from . import nmap_module          # noqa: F401
 from . import whatweb_module       # noqa: F401
+from . import cms_fingerprint_module  # noqa: F401
 from . import ssh_banner_module    # noqa: F401
 from . import feroxbuster_module   # noqa: F401
 from . import nuclei_module        # noqa: F401

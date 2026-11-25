@@ -94,7 +94,7 @@ Every module produces facts in this envelope:
 
 | modules/*.yaml     | Trigger                      | Tool(s)              | What it's looking for |
 |---------------------|-------------------------------|-----------------------|------------------------|
-| `http.yaml`         | service: http/https/...       | whatweb, nuclei, feroxbuster | tech stack, live CVE matches, hidden paths |
+| `http.yaml`         | service: http/https/...       | whatweb, cms-fingerprint, nuclei, feroxbuster | tech stack, CMS+version+admin panel, live CVE matches, hidden paths |
 | `smb.yaml`          | service: smb/...               | enum4linux-ng, smbclient | shares, null-session enum |
 | `ssh.yaml`          | service: ssh                   | ssh-banner           | banner / version leak |
 | `ftp.yaml`          | service: ftp                   | ftp-anon-check       | anonymous login |
@@ -179,6 +179,26 @@ real target. See the module's own docstring for the full caveat and
 for a note on verifying the `searchsploit --json` field names against
 your installed exploitdb version.
 
+### Feroxbuster baseline fallback (modules_impl/feroxbuster_module.py)
+
+Previously this module pointed at a hardcoded SecLists path and did
+nothing else — on any box without SecLists installed (a large,
+separate, optional package, not a given even on Kali), feroxbuster
+would exit immediately with no results and the module produced
+nothing, silently. Now: if the configured wordlist
+(`DEFAULT_WORDLIST`) exists on disk, it's still used as before (it's a
+much deeper list). If it doesn't, the module writes a built-in,
+~50-path baseline list (`BASELINE_PATHS` — common admin/login panels,
+`.git`/`.env`/config leaks, backup file names, API/monitoring
+endpoints) to a temp file and scans with that instead, so feroxbuster
+**always** runs and you always get a "lay of the land" baseline result
+on a bare install. When the fallback is used, that fact is logged (not
+silent) and recorded in the module's own log file — see
+`core/module_base.py`'s `_write_log` note. CMS-specific paths
+(wp-admin, wp-login.php, etc.) are deliberately not duplicated into
+this list — `cms_fingerprint_module.py` above checks those directly
+once it identifies the CMS.
+
 ### Generic NSE-script probe (modules_impl/nse_probe_module.py)
 
 Wraps nmap's own script engine generically instead of hand-rolling a
@@ -195,6 +215,34 @@ session`, ...) flags the output as `severity: high` when one of those
 phrases appears, else `info` — a heuristic, not a structured parser;
 see the module docstring for the trade-off and when to graduate a
 specific script to its own dedicated parser instead.
+
+### Web server / CMS fingerprint (modules_impl/cms_fingerprint_module.py)
+
+"There's a web server on :80" and "what's actually running it, and
+where's the login" are different questions — this module answers the
+second one. On every HTTP(S) port it:
+
+1. Reads the `Server`/`X-Powered-By` response headers into a new
+   `webserver` fact (the literal header values, separate from
+   whatweb's plugin-signature-based `technology` fact).
+2. Fingerprints the CMS (WordPress, Joomla, Drupal — see
+   `CMS_SIGNATURES` in the module to add another) via the `<meta
+   name="generator">` tag first, falling back to body indicator
+   strings when that's been stripped.
+3. For WordPress specifically (the example in the ask): gets the
+   version from the generator tag, or failing that from the `?ver=`
+   query strings WP stamps onto its own bundled JS/CSS assets, or
+   failing that from `/readme.html`; checks whether `/wp-login.php`
+   and `/wp-admin/` are reachable (confirms the admin entry point and
+   where it is); and checks `/wp-json/wp/v2/users`, which WordPress
+   exposes unauthenticated by default and which leaks real usernames —
+   a direct feed into `default-creds.yaml`'s hydra check instead of
+   guessing "admin".
+4. If a version was found, runs the same `searchsploit` keyword lookup
+   `cve_lookup_module.py` does (same "lead to triage, not a confirmed
+   finding" caveat) against the CMS name + version.
+
+All of this is stdlib `urllib` — no new binary or Python dependency.
 
 ### TLS/SSL audit (modules_impl/tls_audit_module.py)
 

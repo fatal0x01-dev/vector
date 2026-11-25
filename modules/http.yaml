@@ -7,6 +7,7 @@ triggers:
     - https-alt
 tools:
   - whatweb
+  - cms-fingerprint
   - nuclei
   - feroxbuster
 produces:
